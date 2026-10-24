@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Little Cash Gift — Prototype</title>
+<style>
+:root{--green:#6e8066;--pale:#edf1e8;--ink:#273126;--muted:#687064;--paper:#fffdf8}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(145deg,#edf1e8,#faf6ec);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);min-height:100vh;display:grid;place-items:center;padding:22px}
+main{width:min(100%,560px);background:var(--paper);border:1px solid #dce3d6;border-radius:24px;padding:clamp(22px,5vw,38px);box-shadow:0 12px 40px #35432b12}
+.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:.72rem;color:var(--green);font-weight:700}
+h1{font-family:Georgia,serif;font-weight:500;font-size:2.15rem;margin:.45rem 0}
+p{line-height:1.55;color:var(--muted)}
+label{display:block;font-size:.9rem;font-weight:650;margin:16px 0 7px}
+input,select,button{font:inherit;width:100%;border-radius:12px;padding:12px 14px}
+input,select{border:1px solid #cbd5c4;background:white;color:var(--ink)}
+button{border:0;background:var(--green);color:white;font-weight:700;cursor:pointer;margin-top:16px}
+button.secondary{background:#e8ede3;color:var(--ink)}
+.panel{background:#f2f5ee;border-radius:16px;padding:18px;margin-top:18px}
+.hidden{display:none!important}
+.amount{font-size:2.4rem;font-weight:750;color:var(--green);margin:8px 0}
+#qr{display:block;max-width:220px;width:100%;margin:16px auto;border:8px solid white;border-radius:8px}
+.note{font-size:.82rem;background:#fff4d9;padding:12px;border-radius:12px;color:#6a5423;margin-top:18px}
+footer{font-size:.78rem;color:var(--muted);margin-top:22px}
+hr{border:0;border-top:1px solid #e3e7df;margin:22px 0}
+.status{font-weight:700;margin-top:10px}
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">A little something for you</div>
+  <h1>Little Cash Gift</h1>
+  <p>A simple QR gift voucher concept. Set up a voucher below, or switch to recipient view to try entering its code.</p>
+
+  <section id="admin">
+    <h2>Make a voucher</h2>
+    <label for="amount">Gift amount</label>
+    <select id="amount"><option value="100">₱100</option><option value="200">₱200</option><option value="300">₱300</option><option value="400">₱400</option><option value="500">₱500</option></select>
+    <label for="code">Secret claim code</label>
+    <input id="code" maxlength="24" placeholder="e.g. GIFT-7K2P" autocomplete="off">
+    <label for="baseurl">Public claim-page URL</label>
+    <input id="baseurl" type="url" placeholder="Add your hosted webpage URL after publishing">
+    <button id="make">Create QR voucher</button>
+    <div id="result" class="panel hidden">
+      <div class="eyebrow">Voucher created (demo)</div>
+      <div class="amount" id="showAmount"></div>
+      <img id="qr" alt="QR code for the claim page">
+      <p id="qrText"></p>
+      <button class="secondary" id="download">Download QR image</button>
+      <p class="note">This is a visual prototype only. It does not store vouchers securely, prevent reuse across devices, or transfer money. A real public version needs a backend and a manually verified or integrated payout process.</p>
+    </div>
+  </section>
+
+  <hr>
+  <section id="claim">
+    <h2>Recipient view — demo</h2>
+    <p>In the real version, the QR opens this page and the recipient enters only the secret code.</p>
+    <label for="claimCode">Enter claim code</label>
+    <input id="claimCode" maxlength="24" placeholder="Enter your code" autocomplete="off">
+    <button id="check">Check voucher</button>
+    <div id="claimResult" class="panel hidden" aria-live="polite"></div>
+  </section>
+  <div class="note"><strong>Important:</strong> This demo only works in this browser session. Do not use it to hold real money or private claim codes. For real vouchers, codes must be stored and marked as claimed on a secure server.</div>
+  <footer>Personal prototype • No payment details collected • No automatic GCash transfer</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let currentVoucher=null;
+$('make').addEventListener('click',()=>{
+  const amount=Number($('amount').value);
+  const code=$('code').value.trim().toUpperCase();
+  const base=$('baseurl').value.trim();
+  if(!code){alert('Please enter a secret claim code.');return;}
+  if(!base || !/^https?:\/\//i.test(base)){alert('Enter the public URL after you host this webpage. A local file link will not work on the recipient’s phone.');return;}
+  currentVoucher={amount,code};
+  const url=new URL(base);
+  url.searchParams.set('claim','1');
+  $('showAmount').textContent='₱'+amount.toLocaleString('en-PH');
+  $('qr').src='https://api.qrserver.com/v1/create-qr-code/?size=260x260&data='+encodeURIComponent(url.toString());
+  $('qrText').textContent='QR opens: '+url.toString()+' • Recipient enters the code shown only to them.';
+  $('result').classList.remove('hidden');
+});
+$('download').addEventListener('click',async()=>{
+  try{
+    const response=await fetch($('qr').src);const blob=await response.blob();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cash-gift-qr.png';a.click();URL.revokeObjectURL(a.href);
+  }catch(e){window.open($('qr').src,'_blank');}
+});
+$('check').addEventListener('click',()=>{
+  const entered=$('claimCode').value.trim().toUpperCase();
+  const box=$('claimResult');box.classList.remove('hidden');
+  if(currentVoucher && entered===currentVoucher.code){
+    box.innerHTML='<div class="eyebrow">Demo code accepted</div><div class="amount">₱'+currentVoucher.amount.toLocaleString('en-PH')+'</div><p>Voucher code matches in this browser demo. No money has been transferred.</p>';
+  }else{
+    box.textContent='Code not found in this demo session. A real version checks the code against a secure database.';
+  }
+});
+</script>
+</body>
+</html>
